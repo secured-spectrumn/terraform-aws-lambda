@@ -2,7 +2,6 @@ provider "aws" {
   region = "eu-west-1"
 
   # Make it faster by skipping something
-  skip_get_ec2_platforms      = true
   skip_metadata_api_check     = true
   skip_region_validation      = true
   skip_credentials_validation = true
@@ -10,6 +9,8 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+
+data "aws_organizations_organization" "this" {}
 
 ####################################################
 # Lambda Function (building locally, storing on S3,
@@ -52,6 +53,10 @@ module "lambda_function" {
   dead_letter_target_arn    = aws_sqs_queue.dlq.arn
 
   allowed_triggers = {
+    Config = {
+      principal        = "config.amazonaws.com"
+      principal_org_id = data.aws_organizations_organization.this.id
+    }
     APIGatewayAny = {
       service    = "apigateway"
       source_arn = "arn:aws:execute-api:eu-west-1:${data.aws_caller_identity.current.account_id}:aqnku8akd0/*/*/*"
@@ -79,6 +84,7 @@ module "lambda_function" {
     expose_headers    = ["keep-alive", "date"]
     max_age           = 86400
   }
+  invoke_mode = "RESPONSE_STREAM"
 
   ######################
   # Additional policies
@@ -158,6 +164,12 @@ module "lambda_function" {
       actions   = ["s3:HeadObject", "s3:GetObject"],
       resources = ["arn:aws:s3:::my-bucket/*"]
     }
+  }
+
+  timeouts = {
+    create = "20m"
+    update = "20m"
+    delete = "20m"
   }
 
   tags = {

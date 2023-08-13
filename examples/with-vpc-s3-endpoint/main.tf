@@ -2,7 +2,6 @@ provider "aws" {
   region = "eu-west-1"
 
   # Make it faster by skipping something
-  skip_get_ec2_platforms      = true
   skip_metadata_api_check     = true
   skip_region_validation      = true
   skip_credentials_validation = true
@@ -61,7 +60,7 @@ data "aws_ec2_managed_prefix_list" "this" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
+  version = "~> 5.0"
 
   name = random_pet.this.id
   cidr = "10.0.0.0/16"
@@ -103,7 +102,7 @@ module "vpc" {
 
 module "vpc_endpoints" {
   source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
-  version = "~> 3.0"
+  version = "~> 5.0"
 
   vpc_id = module.vpc.vpc_id
 

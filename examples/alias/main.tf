@@ -2,12 +2,13 @@ provider "aws" {
   region = "eu-west-1"
 
   # Make it faster by skipping something
-  skip_get_ec2_platforms      = true
   skip_metadata_api_check     = true
   skip_region_validation      = true
   skip_credentials_validation = true
   skip_requesting_account_id  = true
 }
+
+data "aws_organizations_organization" "this" {}
 
 resource "random_pet" "this" {
   length = 2
@@ -73,12 +74,17 @@ module "alias_no_refresh" {
 
   event_source_mapping = {
     sqs = {
-      service          = "sqs"
-      event_source_arn = module.sqs_events.sqs_queue_arn
+      service             = "sqs"
+      event_source_arn    = module.sqs_events.sqs_queue_arn
+      maximum_concurrency = 10
     }
   }
 
   allowed_triggers = {
+    Config = {
+      principal        = "config.amazonaws.com"
+      principal_org_id = data.aws_organizations_organization.this.id
+    }
     AnotherAPIGatewayAny = { # keys should be unique
       service    = "apigateway"
       source_arn = "arn:aws:execute-api:eu-west-1:135367859851:abcdedfgse/*/*/*"
@@ -118,6 +124,10 @@ module "alias_existing" {
   }
 
   allowed_triggers = {
+    Config = {
+      principal        = "config.amazonaws.com"
+      principal_org_id = data.aws_organizations_organization.this.id
+    }
     ThirdAPIGatewayAny = {
       service    = "apigateway"
       source_arn = "arn:aws:execute-api:eu-west-1:135367859851:aqnku8akd0/*/*/*"

@@ -5,7 +5,7 @@ locals {
   # The region part of the LogGroup ARN is then replaced with a wildcard (*) so Lambda@Edge is able to log in every region
   log_group_arn_regional = try(data.aws_cloudwatch_log_group.lambda[0].arn, aws_cloudwatch_log_group.lambda[0].arn, "")
   log_group_name         = try(data.aws_cloudwatch_log_group.lambda[0].name, aws_cloudwatch_log_group.lambda[0].name, "")
-  log_group_arn          = local.create_role && var.lambda_at_edge ? format("arn:%s:%s:%s:%s:%s", data.aws_arn.log_group_arn[0].partition, data.aws_arn.log_group_arn[0].service, "*", data.aws_arn.log_group_arn[0].account, data.aws_arn.log_group_arn[0].resource) : local.log_group_arn_regional
+  log_group_arn          = local.create_role && var.lambda_at_edge ? format("arn:%s:%s:%s:%s:%s", data.aws_arn.log_group_arn[0].partition, data.aws_arn.log_group_arn[0].service, var.lambda_at_edge_logs_all_regions ? "*" : "us-east-1", data.aws_arn.log_group_arn[0].account, data.aws_arn.log_group_arn[0].resource) : local.log_group_arn_regional
 
   # Defaulting to "*" (an invalid character for an IAM Role name) will cause an error when
   #   attempting to plan if the role_name and function_name are not set.  This is a workaround
@@ -100,6 +100,7 @@ resource "aws_iam_role" "lambda" {
   force_detach_policies = var.role_force_detach_policies
   permissions_boundary  = var.role_permissions_boundary
   assume_role_policy    = data.aws_iam_policy_document.assume_role[0].json
+  max_session_duration  = var.role_maximum_session_duration
 
   tags = merge(var.tags, var.role_tags)
 }

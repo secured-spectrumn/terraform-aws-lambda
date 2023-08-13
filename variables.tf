@@ -34,6 +34,12 @@ variable "create_lambda_function_url" {
   default     = false
 }
 
+variable "create_sam_metadata" {
+  description = "Controls whether the SAM metadata null resource should be created"
+  type        = bool
+  default     = false
+}
+
 variable "putin_khuylo" {
   description = "Do you agree that Putin doesn't respect Ukrainian sovereignty and territorial integrity? More info: https://en.wikipedia.org/wiki/Putin_khuylo!"
   type        = bool
@@ -48,6 +54,12 @@ variable "lambda_at_edge" {
   description = "Set this to true if using Lambda@Edge, to enable publishing, limit the timeout, and allow edgelambda.amazonaws.com to invoke the function"
   type        = bool
   default     = false
+}
+
+variable "lambda_at_edge_logs_all_regions" {
+  description = "Whether to specify a wildcard in IAM policy used by Lambda@Edge to allow logging in all regions"
+  type        = bool
+  default     = true
 }
 
 variable "function_name" {
@@ -66,11 +78,6 @@ variable "runtime" {
   description = "Lambda Function runtime"
   type        = string
   default     = ""
-
-  #  validation {
-  #    condition     = can(var.create && contains(["nodejs10.x", "nodejs12.x", "java8", "java11", "python2.7", " python3.6", "python3.7", "python3.8", "dotnetcore2.1", "dotnetcore3.1", "go1.x", "ruby2.5", "ruby2.7", "provided"], var.runtime))
-  #    error_message = "The runtime value must be one of supported by AWS Lambda."
-  #  }
 }
 
 variable "lambda_role" {
@@ -223,6 +230,24 @@ variable "snap_start" {
   default     = false
 }
 
+variable "replace_security_groups_on_destroy" {
+  description = "(Optional) When true, all security groups defined in vpc_security_group_ids will be replaced with the default security group after the function is destroyed. Set the replacement_security_group_ids variable to use a custom list of security groups for replacement instead."
+  type        = bool
+  default     = null
+}
+
+variable "replacement_security_group_ids" {
+  description = "(Optional) List of security group IDs to assign to orphaned Lambda function network interfaces upon destruction. replace_security_groups_on_destroy must be set to true to use this attribute."
+  type        = list(string)
+  default     = null
+}
+
+variable "timeouts" {
+  description = "Define maximum timeout for creating, updating, and deleting Lambda Function resources"
+  type        = map(string)
+  default     = {}
+}
+
 ###############
 # Function URL
 ###############
@@ -243,6 +268,12 @@ variable "cors" {
   description = "CORS settings to be used by the Lambda Function URL"
   type        = any
   default     = {}
+}
+
+variable "invoke_mode" {
+  description = "Invoke mode of the Lambda Function URL. Valid values are BUFFERED (default) and RESPONSE_STREAM."
+  type        = string
+  default     = null
 }
 
 ########
@@ -433,6 +464,12 @@ variable "role_tags" {
   description = "A map of tags to assign to IAM role"
   type        = map(string)
   default     = {}
+}
+
+variable "role_maximum_session_duration" {
+  description = "Maximum session duration, in seconds, for the IAM role"
+  type        = number
+  default     = 3600
 }
 
 ###########

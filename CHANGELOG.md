@@ -2,6 +2,112 @@
 
 All notable changes to this project will be documented in this file.
 
+## [6.0.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v5.3.0...v6.0.0) (2023-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* Disable creation of SAM metadata null-resources by default (#494)
+
+### Features
+
+* Disable creation of SAM metadata null-resources by default ([#494](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/494)) ([9c9603c](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/9c9603cbb889a2cda1555deaed908d320e013515))
+
+## [5.3.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v5.2.0...v5.3.0) (2023-07-17)
+
+
+### Features
+
+* Added timeouts for Lambda Functions ([#485](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/485)) ([2a59ba2](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/2a59ba2948fa22dd7cb7a1c8a721fa826c3832e8))
+
+## [5.2.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v5.1.0...v5.2.0) (2023-07-05)
+
+
+### Features
+
+* Add module wrappers ([#479](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/479)) ([b5e9346](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/b5e9346de58bff16a63b63f76209bdb59534105e))
+
+## [5.1.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v5.0.0...v5.1.0) (2023-07-04)
+
+
+### Features
+
+* Support maximum concurrency of Lambda Alias with SQS as an event source ([#457](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/457)) ([24bd26e](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/24bd26e8d598d183a995e2742713e122ecc607a5))
+
+## [5.0.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.18.0...v5.0.0) (2023-06-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* Bump versions of Terraform to 1.0, kreuzwerker/docker provider to 3.0 (#464)
+
+### Features
+
+* Bump versions of Terraform to 1.0, kreuzwerker/docker provider to 3.0 ([#464](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/464)) ([3f2044f](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/3f2044f0d6a5cad4b37100c26b2558d1acb9b982))
+
+## [4.18.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.17.0...v4.18.0) (2023-05-17)
+
+
+### Features
+
+* Added control to create logs by Lambda@Edge in all regions ([#462](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/462)) ([712d8ec](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/712d8ecb9a224be8ed36cb34eebf4b7e815d0565))
+
+## [4.17.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.16.0...v4.17.0) (2023-05-04)
+
+
+### Features
+
+* add qualified invoke ARN output ([#437](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/437)) ([dcd899b](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/dcd899b40bdeb4c7f607a5568e6f24dac81f26a0))
+
+## [4.16.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.15.0...v4.16.0) (2023-04-18)
+
+
+### Features
+
+* Adding variable principal_org_id to resource aws_lambda_permission ([#448](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/448)) ([31d75e7](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/31d75e7206d2816471fe828e86ef3f2a1ad1218d))
+
+## [4.15.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.14.0...v4.15.0) (2023-04-17)
+
+
+### Features
+
+* Add invoke_mode input ([#446](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/446)) ([d7b3ac9](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/d7b3ac970b7f18be19c95ec43ce4d1fac9ae2572))
+
+## [4.14.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.13.0...v4.14.0) (2023-04-14)
+
+
+### Features
+
+* Add max session duration for IAM role ([#391](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/391)) ([3a21ac5](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/3a21ac58bc5c4e1cb369a935a977246c10f31cf5))
+
+## [4.13.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.12.1...v4.13.0) (2023-04-03)
+
+
+### Features
+
+* Support maximum concurrency of Lambda with SQS as an event source ([#402](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/402)) ([268975c](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/268975c9e2224cb05bdad8d7c39f879610dedc53))
+
+### [4.12.1](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.12.0...v4.12.1) (2023-03-10)
+
+
+### Bug Fixes
+
+* Set the default value of replacement_security_group_ids to null ([#434](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/434)) ([a2d9ff9](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/a2d9ff97d437670feb2f361cf4874e193eea8a12))
+
+## [4.12.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.11.0...v4.12.0) (2023-03-10)
+
+
+### Features
+
+* Added configuration options to replace security groups on destroy of Lambda function ([#422](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/422)) ([2d92236](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/2d92236245edf0f614fb949e6b5e84f2c0216dcd))
+
+## [4.11.0](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.10.1...v4.11.0) (2023-03-10)
+
+
+### Features
+
+* Add dynamic blocks for consumer group id config ([#399](https://github.com/terraform-aws-modules/terraform-aws-lambda/issues/399)) ([7d7bb79](https://github.com/terraform-aws-modules/terraform-aws-lambda/commit/7d7bb792ceb0ba97192a8f8fe5b4a232e3239af8))
+
 ### [4.10.1](https://github.com/terraform-aws-modules/terraform-aws-lambda/compare/v4.10.0...v4.10.1) (2023-02-13)
 
 
