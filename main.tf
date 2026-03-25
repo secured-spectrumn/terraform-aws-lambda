@@ -7,12 +7,12 @@ locals {
 
   archive_filename        = try(data.external.archive_prepare[0].result.filename, null)
   archive_filename_string = local.archive_filename != null ? local.archive_filename : ""
-  archive_was_missing     = try(data.external.archive_prepare[0].result.was_missing, false)
 
   # Use a generated filename to determine when the source code has changed.
   # filename - to get package from local
-  filename    = var.local_existing_package != null ? var.local_existing_package : (var.store_on_s3 ? null : local.archive_filename)
-  was_missing = var.local_existing_package != null ? !fileexists(var.local_existing_package) : local.archive_was_missing
+  filename = var.local_existing_package != null ? var.local_existing_package : (var.store_on_s3 ? null : local.archive_filename)
+
+  source_code_hash = var.ignore_source_code_hash ? null : (terraform_data.package_filename_for_hash[0].output.filename != null ? try(filebase64sha256(terraform_data.package_filename_for_hash[0].output.filename), null) : null)
 
   # s3_* - to get package from S3
   s3_bucket         = var.s3_existing_package != null ? try(var.s3_existing_package.bucket, null) : (var.store_on_s3 ? var.s3_bucket : null)
@@ -21,8 +21,27 @@ locals {
 
 }
 
+
+# For computing the source_code_hash, wrap local.filename in a resource
+# that depends on null_resource.archive, and, if var.local_existing_package
+# is set to the output of another resource, on that other resource.
+# terraform-docs-ignore
+resource "terraform_data" "package_filename_for_hash" {
+  count = var.ignore_source_code_hash ? 0 : 1
+
+  input = {
+    filename = local.filename
+  }
+
+  triggers_replace = [local.filename]
+
+  depends_on = [null_resource.archive]
+}
+
 resource "aws_lambda_function" "this" {
   count = local.create && var.create_function && !var.create_layer ? 1 : 0
+
+  region = var.region
 
   function_name                      = var.function_name
   description                        = var.description
@@ -41,6 +60,7 @@ resource "aws_lambda_function" "this" {
   code_signing_config_arn            = var.code_signing_config_arn
   replace_security_groups_on_destroy = var.replace_security_groups_on_destroy
   replacement_security_group_ids     = var.replacement_security_group_ids
+  skip_destroy                       = var.skip_destroy
 
   /* ephemeral_storage is not supported in gov-cloud region, so it should be set to `null` */
   dynamic "ephemeral_storage" {
@@ -52,7 +72,7 @@ resource "aws_lambda_function" "this" {
   }
 
   filename         = local.filename
-  source_code_hash = var.ignore_source_code_hash ? null : (local.filename == null ? false : fileexists(local.filename)) && !local.was_missing ? filebase64sha256(local.filename) : null
+  source_code_hash = local.source_code_hash
 
   s3_bucket         = local.s3_bucket
   s3_key            = local.s3_key
@@ -91,8 +111,9 @@ resource "aws_lambda_function" "this" {
   dynamic "vpc_config" {
     for_each = var.vpc_subnet_ids != null && var.vpc_security_group_ids != null ? [true] : []
     content {
-      security_group_ids = var.vpc_security_group_ids
-      subnet_ids         = var.vpc_subnet_ids
+      security_group_ids          = var.vpc_security_group_ids
+      subnet_ids                  = var.vpc_subnet_ids
+      ipv6_allowed_for_dual_stack = var.ipv6_allowed_for_dual_stack
     }
   }
 
@@ -125,6 +146,15 @@ resource "aws_lambda_function" "this" {
     }
   }
 
+  dynamic "durable_config" {
+    for_each = var.durable_config_execution_timeout != null ? [true] : []
+
+    content {
+      execution_timeout = var.durable_config_execution_timeout
+      retention_period  = var.durable_config_retention_period
+    }
+  }
+
   dynamic "timeouts" {
     for_each = length(var.timeouts) > 0 ? [true] : []
 
@@ -135,8 +165,14 @@ resource "aws_lambda_function" "this" {
     }
   }
 
+  dynamic "tenancy_config" {
+    for_each = var.tenant_isolation_mode ? [true] : []
+    content {
+      tenant_isolation_mode = "PER_TENANT"
+    }
+  }
+
   tags = merge(
-    { terraform-aws-modules = "lambda" },
     var.tags,
     var.function_tags
   )
@@ -152,21 +188,23 @@ resource "aws_lambda_function" "this" {
     aws_cloudwatch_log_group.lambda,
 
     # Before the lambda is created the execution role with all its policies should be ready
-    aws_iam_role_policy_attachment.additional_inline,
-    aws_iam_role_policy_attachment.additional_json,
-    aws_iam_role_policy_attachment.additional_jsons,
+    aws_iam_role_policy.additional_inline,
+    aws_iam_role_policy.additional_json,
+    aws_iam_role_policy.additional_jsons,
+    aws_iam_role_policy.async,
+    aws_iam_role_policy.dead_letter,
+    aws_iam_role_policy.logs,
+    aws_iam_role_policy.tracing,
+    aws_iam_role_policy.vpc,
     aws_iam_role_policy_attachment.additional_many,
     aws_iam_role_policy_attachment.additional_one,
-    aws_iam_role_policy_attachment.async,
-    aws_iam_role_policy_attachment.logs,
-    aws_iam_role_policy_attachment.dead_letter,
-    aws_iam_role_policy_attachment.vpc,
-    aws_iam_role_policy_attachment.tracing,
   ]
 }
 
 resource "aws_lambda_layer_version" "this" {
   count = local.create && var.create_layer ? 1 : 0
+
+  region = var.region
 
   layer_name   = var.layer_name
   description  = var.description
@@ -177,7 +215,7 @@ resource "aws_lambda_layer_version" "this" {
   skip_destroy             = var.layer_skip_destroy
 
   filename         = local.filename
-  source_code_hash = var.ignore_source_code_hash ? null : (local.filename == null ? false : fileexists(local.filename)) && !local.was_missing ? filebase64sha256(local.filename) : null
+  source_code_hash = local.source_code_hash
 
   s3_bucket         = local.s3_bucket
   s3_key            = local.s3_key
@@ -188,6 +226,8 @@ resource "aws_lambda_layer_version" "this" {
 
 resource "aws_s3_object" "lambda_package" {
   count = local.create && var.store_on_s3 && var.create_package ? 1 : 0
+
+  region = var.region
 
   bucket        = var.s3_bucket
   acl           = var.s3_acl
@@ -216,23 +256,30 @@ resource "aws_s3_object" "lambda_package" {
 data "aws_cloudwatch_log_group" "lambda" {
   count = local.create && var.create_function && !var.create_layer && var.use_existing_cloudwatch_log_group ? 1 : 0
 
+  region = var.region
+
   name = coalesce(var.logging_log_group, "/aws/lambda/${var.lambda_at_edge ? "us-east-1." : ""}${var.function_name}")
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
   count = local.create && var.create_function && !var.create_layer && !var.use_existing_cloudwatch_log_group ? 1 : 0
 
-  name              = coalesce(var.logging_log_group, "/aws/lambda/${var.lambda_at_edge ? "us-east-1." : ""}${var.function_name}")
-  retention_in_days = var.cloudwatch_logs_retention_in_days
-  kms_key_id        = var.cloudwatch_logs_kms_key_id
-  skip_destroy      = var.cloudwatch_logs_skip_destroy
-  log_group_class   = var.cloudwatch_logs_log_group_class
+  region = var.region
+
+  name                        = coalesce(var.logging_log_group, "/aws/lambda/${var.lambda_at_edge ? "us-east-1." : ""}${var.function_name}")
+  retention_in_days           = var.cloudwatch_logs_retention_in_days
+  kms_key_id                  = var.cloudwatch_logs_kms_key_id
+  skip_destroy                = var.cloudwatch_logs_skip_destroy
+  log_group_class             = var.cloudwatch_logs_log_group_class
+  deletion_protection_enabled = var.cloudwatch_logs_deletion_protection_enabled
 
   tags = merge(var.tags, var.cloudwatch_logs_tags)
 }
 
 resource "aws_lambda_provisioned_concurrency_config" "current_version" {
   count = local.create && var.create_function && !var.create_layer && var.provisioned_concurrent_executions > -1 ? 1 : 0
+
+  region = var.region
 
   function_name = aws_lambda_function.this[0].function_name
   qualifier     = aws_lambda_function.this[0].version
@@ -246,6 +293,8 @@ locals {
 
 resource "aws_lambda_function_event_invoke_config" "this" {
   for_each = { for k, v in local.qualifiers : k => v if v != null && local.create && var.create_function && !var.create_layer && var.create_async_event_config }
+
+  region = var.region
 
   function_name = aws_lambda_function.this[0].function_name
   qualifier     = each.key == "current_version" ? aws_lambda_function.this[0].version : null
@@ -276,16 +325,19 @@ resource "aws_lambda_function_event_invoke_config" "this" {
 resource "aws_lambda_permission" "current_version_triggers" {
   for_each = { for k, v in var.allowed_triggers : k => v if local.create && var.create_function && !var.create_layer && var.create_current_version_allowed_triggers }
 
+  region = var.region
+
   function_name = aws_lambda_function.this[0].function_name
   qualifier     = aws_lambda_function.this[0].version
 
-  statement_id_prefix = try(each.value.statement_id, each.key)
-  action              = try(each.value.action, "lambda:InvokeFunction")
-  principal           = try(each.value.principal, format("%s.amazonaws.com", try(each.value.service, "")))
-  principal_org_id    = try(each.value.principal_org_id, null)
-  source_arn          = try(each.value.source_arn, null)
-  source_account      = try(each.value.source_account, null)
-  event_source_token  = try(each.value.event_source_token, null)
+  statement_id_prefix    = try(each.value.statement_id, each.key)
+  action                 = try(each.value.action, "lambda:InvokeFunction")
+  principal              = try(each.value.principal, format("%s.amazonaws.com", try(each.value.service, "")))
+  principal_org_id       = try(each.value.principal_org_id, null)
+  source_arn             = try(each.value.source_arn, null)
+  source_account         = try(each.value.source_account, null)
+  event_source_token     = try(each.value.event_source_token, null)
+  function_url_auth_type = try(each.value.function_url_auth_type, null)
 
   lifecycle {
     create_before_destroy = true
@@ -296,15 +348,18 @@ resource "aws_lambda_permission" "current_version_triggers" {
 resource "aws_lambda_permission" "unqualified_alias_triggers" {
   for_each = { for k, v in var.allowed_triggers : k => v if local.create && var.create_function && !var.create_layer && var.create_unqualified_alias_allowed_triggers }
 
+  region = var.region
+
   function_name = aws_lambda_function.this[0].function_name
 
-  statement_id_prefix = try(each.value.statement_id, each.key)
-  action              = try(each.value.action, "lambda:InvokeFunction")
-  principal           = try(each.value.principal, format("%s.amazonaws.com", try(each.value.service, "")))
-  principal_org_id    = try(each.value.principal_org_id, null)
-  source_arn          = try(each.value.source_arn, null)
-  source_account      = try(each.value.source_account, null)
-  event_source_token  = try(each.value.event_source_token, null)
+  statement_id_prefix    = try(each.value.statement_id, each.key)
+  action                 = try(each.value.action, "lambda:InvokeFunction")
+  principal              = try(each.value.principal, format("%s.amazonaws.com", try(each.value.service, "")))
+  principal_org_id       = try(each.value.principal_org_id, null)
+  source_arn             = try(each.value.source_arn, null)
+  source_account         = try(each.value.source_account, null)
+  event_source_token     = try(each.value.event_source_token, null)
+  function_url_auth_type = try(each.value.function_url_auth_type, null)
 
   lifecycle {
     create_before_destroy = true
@@ -313,6 +368,8 @@ resource "aws_lambda_permission" "unqualified_alias_triggers" {
 
 resource "aws_lambda_event_source_mapping" "this" {
   for_each = { for k, v in var.event_source_mapping : k => v if local.create && var.create_function && !var.create_layer && var.create_unqualified_alias_allowed_triggers }
+
+  region = var.region
 
   function_name = aws_lambda_function.this[0].arn
 
@@ -330,6 +387,7 @@ resource "aws_lambda_event_source_mapping" "this" {
   topics                             = try(each.value.topics, null)
   queues                             = try(each.value.queues, null)
   function_response_types            = try(each.value.function_response_types, null)
+  tumbling_window_in_seconds         = try(each.value.tumbling_window_in_seconds, null)
 
   dynamic "destination_config" {
     for_each = try(each.value.destination_arn_on_failure, null) != null ? [true] : []
@@ -389,10 +447,40 @@ resource "aws_lambda_event_source_mapping" "this" {
       }
     }
   }
+
+  dynamic "document_db_event_source_config" {
+    for_each = try(each.value.document_db_event_source_config, [])
+
+    content {
+      database_name   = document_db_event_source_config.value.database_name
+      collection_name = try(document_db_event_source_config.value.collection_name, null)
+      full_document   = try(document_db_event_source_config.value.full_document, null)
+    }
+  }
+
+  dynamic "metrics_config" {
+    for_each = try([each.value.metrics_config], [])
+
+    content {
+      metrics = metrics_config.value.metrics
+    }
+  }
+
+  dynamic "provisioned_poller_config" {
+    for_each = try([each.value.provisioned_poller_config], [])
+    content {
+      maximum_pollers = try(provisioned_poller_config.value.maximum_pollers, null)
+      minimum_pollers = try(provisioned_poller_config.value.minimum_pollers, null)
+    }
+  }
+
+  tags = merge(var.tags, try(each.value.tags, {}))
 }
 
 resource "aws_lambda_function_url" "this" {
   count = local.create && var.create_function && !var.create_layer && var.create_lambda_function_url ? 1 : 0
+
+  region = var.region
 
   function_name = aws_lambda_function.this[0].function_name
 
@@ -413,6 +501,15 @@ resource "aws_lambda_function_url" "this" {
       max_age           = try(cors.value.max_age, null)
     }
   }
+}
+
+resource "aws_lambda_function_recursion_config" "this" {
+  count = local.create && var.create_function && !var.create_layer && var.recursive_loop == "Allow" ? 1 : 0
+
+  region = var.region
+
+  function_name  = aws_lambda_function.this[0].function_name
+  recursive_loop = var.recursive_loop
 }
 
 # This resource contains the extra information required by SAM CLI to provide the testing capabilities

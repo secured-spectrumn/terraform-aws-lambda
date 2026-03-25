@@ -6,7 +6,12 @@ output "lambda_function_arn" {
 
 output "lambda_function_arn_static" {
   description = "The static ARN of the Lambda Function. Use this to avoid cycle errors between resources (e.g., Step Functions)"
-  value       = local.create && var.create_function && !var.create_layer ? "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${var.function_name}" : ""
+  value       = local.create && var.create_function && !var.create_layer ? "arn:${data.aws_partition.current.partition}:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:function:${var.function_name}" : ""
+}
+
+output "lambda_function_code_sha256" {
+  description = "The base64-encoded representation of the source code package file"
+  value       = try(aws_lambda_function.this[0].code_sha256, "")
 }
 
 output "lambda_function_invoke_arn" {
@@ -45,7 +50,7 @@ output "lambda_function_kms_key_arn" {
 }
 
 output "lambda_function_source_code_hash" {
-  description = "Base64-encoded representation of raw SHA-256 sum of the zip file"
+  description = "The user-defined hash of the source code package file"
   value       = try(aws_lambda_function.this[0].source_code_hash, "")
 }
 
@@ -86,9 +91,19 @@ output "lambda_layer_layer_arn" {
   value       = try(aws_lambda_layer_version.this[0].layer_arn, "")
 }
 
+output "lambda_layer_code_sha256" {
+  description = "The base64-encoded representation of the Lambda Layer source code package file"
+  value       = try(aws_lambda_layer_version.this[0].code_sha256, "")
+}
+
 output "lambda_layer_created_date" {
   description = "The date Lambda Layer resource was created"
   value       = try(aws_lambda_layer_version.this[0].created_date, "")
+}
+
+output "lambda_layer_source_code_hash" {
+  description = "The user-defined hash of the Lambda Layer source code package file"
+  value       = try(aws_lambda_layer_version.this[0].source_code_hash, "")
 }
 
 output "lambda_layer_source_code_size" {
@@ -102,6 +117,11 @@ output "lambda_layer_version" {
 }
 
 # Lambda Event Source Mapping
+output "lambda_event_source_mapping_arn" {
+  description = "The event source mapping ARN"
+  value       = { for k, v in aws_lambda_event_source_mapping.this : k => v.arn }
+}
+
 output "lambda_event_source_mapping_function_arn" {
   description = "The the ARN of the Lambda function the event source mapping is sending events to"
   value       = { for k, v in aws_lambda_event_source_mapping.this : k => v.function_arn }

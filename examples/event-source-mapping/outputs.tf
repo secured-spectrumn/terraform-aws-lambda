@@ -9,6 +9,11 @@ output "lambda_function_arn_static" {
   value       = module.lambda_function.lambda_function_arn_static
 }
 
+output "lambda_function_code_sha256" {
+  description = "The base64-encoded representation of the source code package file"
+  value       = module.lambda_function.lambda_function_code_sha256
+}
+
 output "lambda_function_invoke_arn" {
   description = "The Invoke ARN of the Lambda Function"
   value       = module.lambda_function.lambda_function_invoke_arn
@@ -40,7 +45,7 @@ output "lambda_function_kms_key_arn" {
 }
 
 output "lambda_function_source_code_hash" {
-  description = "Base64-encoded representation of raw SHA-256 sum of the zip file"
+  description = "The user-defined hash of the source code package file"
   value       = module.lambda_function.lambda_function_source_code_hash
 }
 
@@ -68,4 +73,9 @@ output "lambda_event_source_mapping_state_transition_reason" {
 output "lambda_event_source_mapping_uuid" {
   description = "The UUID of the created event source mapping"
   value       = module.lambda_function.lambda_event_source_mapping_uuid
+}
+
+output "lambda_event_source_mapping_arn" {
+  description = "The event source mapping ARN"
+  value       = module.lambda_function.lambda_event_source_mapping_arn
 }

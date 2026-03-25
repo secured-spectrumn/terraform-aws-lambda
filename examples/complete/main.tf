@@ -26,6 +26,7 @@ module "lambda_function" {
   ephemeral_storage_size = 10240
   architectures          = ["x86_64"]
   publish                = true
+  # recursive_loop       = "Allow"
 
   source_path = "${path.module}/../fixtures/python-app1"
 
@@ -51,10 +52,10 @@ module "lambda_function" {
     Serverless = "Terraform"
   }
 
-  cloudwatch_logs_log_group_class = "INFREQUENT_ACCESS"
+  cloudwatch_logs_log_group_class             = "INFREQUENT_ACCESS"
+  cloudwatch_logs_deletion_protection_enabled = false
 
-  role_path   = "/tf-managed/"
-  policy_path = "/tf-managed/"
+  role_path = "/tf-managed/"
 
   attach_dead_letter_policy = true
   dead_letter_target_arn    = aws_sqs_queue.dlq.arn
@@ -352,6 +353,8 @@ module "lambda_function_for_each" {
 
   for_each = toset(["dev", "staging", "prod"])
 
+  region = "us-east-1"
+
   function_name = "my-${each.value}"
   description   = "My awesome lambda function"
   handler       = "index.lambda_handler"
@@ -459,7 +462,7 @@ resource "random_pet" "this" {
 
 module "s3_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "~> 3.0"
+  version = "~> 5.0"
 
   bucket_prefix = "${random_pet.this.id}-"
   force_destroy = true

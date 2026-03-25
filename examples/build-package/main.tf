@@ -116,7 +116,103 @@ module "package_dir_poetry_no_docker" {
       poetry_install = true
     }
   ]
-  artifacts_dir = "${path.root}/builds/package_dir_poetry/"
+  artifacts_dir = "${path.root}/builds/package_dir_poetry_no_docker/"
+}
+
+# Create zip-archive with Poetry dependencies and demonstrate quiet packaging output
+module "package_dir_poetry_quiet" {
+  source = "../../"
+
+  create_function = false
+
+  runtime = "python3.12"
+
+  source_path = [
+    {
+      path           = "${path.module}/../fixtures/python-app-poetry"
+      poetry_install = true
+    }
+  ]
+  artifacts_dir            = "${path.root}/builds/package_dir_poetry_quiet/"
+  quiet_archive_local_exec = true # Suppress Poetry/pip output during packaging
+}
+
+# Create zip-archive of a single directory where "uv export" & "pip install" will be executed
+module "package_dir_uv_no_lock" {
+  source = "../../"
+
+  create_function = false
+  runtime         = "python3.12"
+
+  source_path = [
+    {
+      path       = "${path.module}/../fixtures/python-app-uv-no-lock"
+      uv_install = true
+    }
+  ]
+
+  artifacts_dir = "${path.root}/builds/package_dir_uv_no_lock/"
+}
+
+# Create zip-archive of a single directory where "uv export" & "pip install" will be executed (using docker)
+module "package_dir_uv" {
+  source = "../../"
+
+  create_function = false
+
+  build_in_docker = true
+  runtime         = "python3.12"
+  docker_image    = "build-python-uv"
+  docker_file     = "${path.module}/../fixtures/python-app-uv/docker/Dockerfile"
+
+  source_path = [
+    {
+      path       = "${path.module}/../fixtures/python-app-uv"
+      uv_install = true
+    }
+  ]
+  artifacts_dir = "${path.root}/builds/package_dir_uv/"
+}
+
+# Create zip-archive of a single directory where "uv export" & "pip install" will be executed (not using docker)
+module "package_dir_uv_no_docker" {
+  source = "../../"
+
+  create_function = false
+
+  runtime = "python3.12"
+
+  source_path = [
+    {
+      path       = "${path.module}/../fixtures/python-app-uv"
+      uv_install = true
+    }
+  ]
+  artifacts_dir = "${path.root}/builds/package_dir_uv_no_docker/"
+}
+
+# Create a Lambda Layer using uv for dependency management (using docker)
+module "lambda_layer_uv" {
+  source = "../../"
+
+  create_layer        = true
+  layer_name          = "${random_pet.this.id}-layer-uv"
+  compatible_runtimes = ["python3.12"]
+  runtime             = "python3.12"
+
+  build_in_docker = true
+  docker_image    = "build-python-uv"
+  docker_file     = "${path.module}/../fixtures/python-app-uv/docker/Dockerfile"
+
+  source_path = [
+    {
+      path          = "${path.module}/../fixtures/python-app-uv"
+      uv_install    = true
+      prefix_in_zip = "python"
+    }
+  ]
+  hash_extra    = "uv-extra-hash-to-prevent-conflicts-with-module.package_dir"
+  artifacts_dir = "${path.root}/builds/lambda_layer_uv/"
 }
 
 # Create zip-archive of a single directory without running "pip install" (which is default for python runtime)
@@ -244,6 +340,31 @@ module "package_with_commands_and_patterns" {
   ]
 }
 
+# Some use cases might require the production packages are deployed while maintaining local node_modules folder
+# This example saves the node_modules folder by moving it to an ignored directory
+# After the zip file is created with production node_modules, the dev node_modules folder is restored
+module "npm_package_with_commands_and_patterns" {
+  source = "../../"
+
+  create_function = false
+
+  runtime = "nodejs18.x"
+  source_path = [
+    {
+      path = "${path.module}/../fixtures/node-app"
+      commands = [
+        "[ ! -d node_modules ] || mv node_modules node_modules_temp",
+        "npm install --production",
+        ":zip",
+        "rm -rf node_modules",
+        "[ ! -d node_modules_temp ] || mv node_modules_temp node_modules",
+      ]
+      patterns = [
+        "!node_modules_temp/.*"
+      ]
+    }
+  ]
+}
 # Create zip-archive with various sources and patterns.
 # Note, that it is possible to write comments in patterns.
 module "package_with_patterns" {
@@ -340,6 +461,18 @@ module "package_dir_with_npm_install" {
   source_path = "${path.module}/../fixtures/nodejs14.x-app1"
 }
 
+# Create zip-archive of a single directory where "npm install" will also be
+# executed (default for nodejs runtime). This example has package-lock.json which
+# is respected when installing dependencies.
+module "package_dir_with_npm_install_lock_file" {
+  source = "../../"
+
+  create_function = false
+
+  runtime     = "nodejs14.x"
+  source_path = "${path.module}/../fixtures/nodejs14.x-app2"
+}
+
 # Create zip-archive of a single directory without running "npm install" (which is the default for nodejs runtime)
 module "package_dir_without_npm_install" {
   source = "../../"
@@ -364,6 +497,20 @@ module "package_with_npm_requirements_in_docker" {
 
   runtime         = "nodejs14.x"
   source_path     = "${path.module}/../fixtures/nodejs14.x-app1"
+  build_in_docker = true
+  hash_extra      = "something-unique-to-not-conflict-with-module.package_dir_with_npm_install"
+}
+
+# Create zip-archive of a single directory where "npm install" will also be
+# executed using docker. This example has package-lock.json which is respected
+# when installing dependencies.
+module "package_with_npm_lock_in_docker" {
+  source = "../../"
+
+  create_function = false
+
+  runtime         = "nodejs14.x"
+  source_path     = "${path.module}/../fixtures/nodejs14.x-app2"
   build_in_docker = true
   hash_extra      = "something-unique-to-not-conflict-with-module.package_dir_with_npm_install"
 }
@@ -401,6 +548,7 @@ module "lambda_layer_poetry" {
     {
       path           = "${path.module}/../fixtures/python-app-poetry"
       poetry_install = true
+      poetry_tmp_dir = "${path.cwd}/../fixtures"
     }
   ]
   hash_extra = "extra-hash-to-prevent-conflicts-with-module.package_dir"
